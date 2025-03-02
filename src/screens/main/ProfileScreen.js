@@ -12,9 +12,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Button, Input, ProfileImage, Loading } from '../../components';
-import { COLORS, TEXT, SHADOWS } from '../../styles';
+import { COLORS, TEXT, SHADOWS, BORDER_RADIUS } from '../../styles';
 import { authActions } from '../../store';
-import { storageService } from '../../services';
+import { storageService, profileDataService } from '../../services';
+import KnowMeBetter from './KnowMeBetter';
+import UserProfileData from './UserProfileData';
 
 const ProfileScreen = () => {
   const dispatch = useDispatch();
@@ -26,6 +28,11 @@ const ProfileScreen = () => {
     displayName: '',
     bio: '',
   });
+  
+  // State voor "Leer mij beter kennen" functionaliteit
+  const [knowMeBetterVisible, setKnowMeBetterVisible] = useState(false);
+  const [profileData, setProfileData] = useState(null);
+  const [isLoadingProfileData, setIsLoadingProfileData] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -33,6 +40,9 @@ const ProfileScreen = () => {
         displayName: user.displayName || '',
         bio: user.bio || '',
       });
+      
+      // Laad gebruikersprofielgegevens
+      loadUserProfileData();
     }
   }, [user]);
 
@@ -42,15 +52,32 @@ const ProfileScreen = () => {
       dispatch(authActions.clearError());
     }
   }, [error, dispatch]);
+  
+  const loadUserProfileData = async () => {
+    if (!user || !user.uid) return;
+    
+    try {
+      setIsLoadingProfileData(true);
+      const data = await profileDataService.getUserProfileData(user.uid);
+      
+      if (data) {
+        setProfileData(data);
+      }
+    } catch (error) {
+      console.error('Error loading user profile data:', error);
+    } finally {
+      setIsLoadingProfileData(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      'Uitloggen',
+      'Weet je zeker dat je wilt uitloggen?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Annuleren', style: 'cancel' },
         { 
-          text: 'Logout', 
+          text: 'Uitloggen', 
           onPress: () => {
             dispatch(authActions.logoutUser());
           } 
@@ -72,7 +99,7 @@ const ProfileScreen = () => {
 
   const handleSaveProfile = () => {
     if (!formData.displayName.trim()) {
-      Alert.alert('Error', 'Name cannot be empty');
+      Alert.alert('Fout', 'Naam mag niet leeg zijn');
       return;
     }
 
@@ -83,7 +110,7 @@ const ProfileScreen = () => {
       .unwrap()
       .then(() => {
         setIsEditing(false);
-        Alert.alert('Success', 'Profile updated successfully');
+        Alert.alert('Gelukt', 'Profiel succesvol bijgewerkt');
       })
       .catch((err) => {
         console.error('Failed to update profile:', err);
@@ -102,7 +129,7 @@ const ProfileScreen = () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Please allow access to your photos to change your profile picture.');
+      Alert.alert('Toestemming nodig', 'Geef toegang tot je foto\'s om je profielfoto te wijzigen.');
       return;
     }
     
@@ -118,7 +145,7 @@ const ProfileScreen = () => {
         uploadProfileImage(result.assets[0].uri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image');
+      Alert.alert('Fout', 'Kan afbeelding niet selecteren');
       console.error('Error picking image:', error);
     }
   };
@@ -136,13 +163,23 @@ const ProfileScreen = () => {
         photoLocalURI: true
       }));
       
-      Alert.alert('Success', 'Profile picture updated successfully');
+      Alert.alert('Gelukt', 'Profielfoto succesvol bijgewerkt');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update profile picture');
+      Alert.alert('Fout', 'Kan profielfoto niet bijwerken');
       console.error('Error updating profile image:', error);
     } finally {
       setIsUploading(false);
     }
+  };
+  
+  const handleOpenKnowMeBetter = () => {
+    setKnowMeBetterVisible(true);
+  };
+  
+  const handleCloseKnowMeBetter = () => {
+    setKnowMeBetterVisible(false);
+    // Herlaad profielgegevens na sluiten
+    loadUserProfileData();
   };
 
   if (isLoading && !user) {
@@ -153,9 +190,9 @@ const ProfileScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>User information not available</Text>
+          <Text style={styles.errorText}>Gebruikersinformatie niet beschikbaar</Text>
           <Button
-            title="Logout"
+            title="Uitloggen"
             onPress={handleLogout}
             variant="outline"
           />
@@ -171,7 +208,7 @@ const ProfileScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
+          <Text style={styles.headerTitle}>Profiel</Text>
           <TouchableOpacity
             style={styles.editButton}
             onPress={toggleEditMode}
@@ -199,7 +236,7 @@ const ProfileScreen = () => {
           {isEditing ? (
             <View style={styles.formContainer}>
               <Input
-                label="Name"
+                label="Naam"
                 value={formData.displayName}
                 onChangeText={(text) => handleChange('displayName', text)}
                 autoCapitalize="words"
@@ -216,7 +253,7 @@ const ProfileScreen = () => {
               />
 
               <Button
-                title="Save Changes"
+                title="Wijzigingen opslaan"
                 onPress={handleSaveProfile}
                 disabled={isLoading}
                 loading={isLoading}
@@ -238,39 +275,63 @@ const ProfileScreen = () => {
             </View>
           )}
         </View>
+        
+        {/* "Leer mij beter kennen" sectie */}
+        {isLoadingProfileData ? (
+          <Loading fullScreen={false} size="small" text="Gegevens laden..." />
+        ) : profileData ? (
+          <UserProfileData 
+            profileData={profileData} 
+            onEdit={handleOpenKnowMeBetter} 
+          />
+        ) : (
+          <View style={styles.knowMeBetterContainer}>
+            <Text style={styles.knowMeBetterTitle}>Vertel me meer over jezelf</Text>
+            <Text style={styles.knowMeBetterText}>
+              Beantwoord enkele vragen zodat we je app-ervaring kunnen personaliseren
+            </Text>
+            <Button
+              title="Leer mij beter kennen"
+              onPress={handleOpenKnowMeBetter}
+              variant="outline"
+              fullWidth
+              style={styles.knowMeBetterButton}
+            />
+          </View>
+        )}
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
               {user.scenarios?.length || 0}
             </Text>
-            <Text style={styles.statLabel}>Scenarios</Text>
+            <Text style={styles.statLabel}>Scenario's</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
               {user.completedScenarios || 0}
             </Text>
-            <Text style={styles.statLabel}>Completed</Text>
+            <Text style={styles.statLabel}>Voltooid</Text>
           </View>
         </View>
 
         <View style={styles.optionsContainer}>
           <TouchableOpacity style={styles.optionItem}>
             <Ionicons name="settings-outline" size={24} color={COLORS.TEXT} style={styles.optionIcon} />
-            <Text style={styles.optionText}>Settings</Text>
+            <Text style={styles.optionText}>Instellingen</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.TEXT_SECONDARY} />
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.optionItem}>
             <Ionicons name="help-circle-outline" size={24} color={COLORS.TEXT} style={styles.optionIcon} />
-            <Text style={styles.optionText}>Help & Support</Text>
+            <Text style={styles.optionText}>Help & Ondersteuning</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.TEXT_SECONDARY} />
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.optionItem}>
             <Ionicons name="star-outline" size={24} color={COLORS.TEXT} style={styles.optionIcon} />
-            <Text style={styles.optionText}>Rate the App</Text>
+            <Text style={styles.optionText}>Beoordeel de App</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.TEXT_SECONDARY} />
           </TouchableOpacity>
           
@@ -279,7 +340,7 @@ const ProfileScreen = () => {
             onPress={handleLogout}
           >
             <Ionicons name="log-out-outline" size={24} color={COLORS.ERROR} style={styles.optionIcon} />
-            <Text style={[styles.optionText, styles.logoutText]}>Logout</Text>
+            <Text style={[styles.optionText, styles.logoutText]}>Uitloggen</Text>
           </TouchableOpacity>
         </View>
 
@@ -287,6 +348,13 @@ const ProfileScreen = () => {
           <Text style={styles.versionText}>LiveParallel v1.0.0</Text>
         </View>
       </ScrollView>
+      
+      {/* "Leer mij beter kennen" Modal */}
+      <KnowMeBetter
+        visible={knowMeBetterVisible}
+        onClose={handleCloseKnowMeBetter}
+        userId={user.uid}
+      />
     </SafeAreaView>
   );
 };
@@ -428,6 +496,30 @@ const styles = StyleSheet.create({
     ...TEXT.body,
     color: COLORS.TEXT_SECONDARY,
     marginBottom: 16,
+  },
+  knowMeBetterContainer: {
+    backgroundColor: COLORS.BACKGROUND,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: 20,
+    marginBottom: 16,
+    ...SHADOWS.small,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + '30', // 30% opacity
+    borderStyle: 'dashed',
+  },
+  knowMeBetterTitle: {
+    ...TEXT.title,
+    marginBottom: 8,
+  },
+  knowMeBetterText: {
+    ...TEXT.body,
+    color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  knowMeBetterButton: {
+    marginTop: 8,
   },
 });
 
