@@ -342,13 +342,13 @@ const renderHobbiesSection = () => {
           </View>
           
           <Button
-  title={activeSection < TOTAL_SECTIONS - 1 ? "Volgende" : "Opslaan"}
-  onPress={goToNextSection}
-  loading={isLoading}
-  disabled={isLoading}
-  fullWidth
-  style={styles.actionButton}
-/>
+           title={activeSection < TOTAL_SECTIONS - 1 ? "Volgende" : "Opslaan"}
+           onPress={goToNextSection}
+           loading={isLoading}
+           disabled={isLoading}
+           fullWidth
+           style={styles.actionButton}
+           />
         </ScrollView>
       </View>
     </Modal>
