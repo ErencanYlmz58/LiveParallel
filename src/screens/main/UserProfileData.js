@@ -52,6 +52,12 @@ const UserProfileData = ({ profileData, onEdit }) => {
             case 'priorities':
               label = 'Prioriteiten';
               break;
+            case 'hobby':
+              label = 'Hobby';
+              break;
+            case 'motivation':
+              label = 'Motivatie';
+              break;
           }
           
           return (

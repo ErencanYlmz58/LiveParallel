@@ -11,6 +11,8 @@ export const registerUser = createAsyncThunk(
         uid: user.uid,
         email: user.email,
         displayName: user.displayName,
+        onboardingCompleted: false,  // Nieuwe gebruikers hebben onboarding nog niet voltooid
+        onboardingSkipped: false,    // Nieuwe gebruikers hebben onboarding nog niet overgeslagen
       };
     } catch (error) {
       return rejectWithValue(error.message);
@@ -66,6 +68,9 @@ export const fetchUserProfile = createAsyncThunk(
         email: user.email,
         displayName: user.displayName || userProfile.displayName,
         photoURL: user.photoURL || userProfile.photoURL,
+        onboardingCompleted: userProfile.onboardingCompleted || false,
+        onboardingSkipped: userProfile.onboardingSkipped || false,
+        completenessScore: userProfile.completenessScore || 0,
         ...userProfile
       };
     } catch (error) {
@@ -118,6 +123,21 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    setOnboardingCompleted: (state, action) => {
+      if (state.user) {
+        state.user.onboardingCompleted = action.payload;
+      }
+    },
+    setOnboardingSkipped: (state, action) => {
+      if (state.user) {
+        state.user.onboardingSkipped = action.payload;
+      }
+    },
+    setCompletenessScore: (state, action) => {
+      if (state.user) {
+        state.user.completenessScore = action.payload;
+      }
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -202,5 +222,12 @@ const authSlice = createSlice({
   },
 });
 
-export const { setUser, clearError } = authSlice.actions;
+export const { 
+  setUser, 
+  clearError, 
+  setOnboardingCompleted, 
+  setOnboardingSkipped,
+  setCompletenessScore
+} = authSlice.actions;
+
 export default authSlice.reducer;

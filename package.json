@@ -17,6 +17,7 @@
         "@reduxjs/toolkit": "^1.9.5",
         "expo": "~49.0.5",
         "expo-file-system": "~15.4.5",
+        "expo-haptics": "~12.4.0",
         "expo-image-picker": "~14.3.2",
         "expo-status-bar": "~1.6.0",
         "firebase": "^10.14.1",

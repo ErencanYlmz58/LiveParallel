@@ -5,7 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
+  Alert
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,10 +15,9 @@ import { Button, Input, ProfileImage, Loading } from '../../components';
 import { COLORS, TEXT, SHADOWS, BORDER_RADIUS } from '../../styles';
 import { authActions } from '../../store';
 import { storageService, profileDataService } from '../../services';
-import KnowMeBetter from './KnowMeBetter';
 import UserProfileData from './UserProfileData';
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { user, isLoading, error } = useSelector((state) => state.auth);
   
@@ -29,10 +28,10 @@ const ProfileScreen = () => {
     bio: '',
   });
   
-  // State voor "Leer mij beter kennen" functionaliteit
-  const [knowMeBetterVisible, setKnowMeBetterVisible] = useState(false);
+  // State voor profielgegevens
   const [profileData, setProfileData] = useState(null);
   const [isLoadingProfileData, setIsLoadingProfileData] = useState(false);
+  const [completenessScore, setCompletenessScore] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -62,12 +61,49 @@ const ProfileScreen = () => {
       
       if (data) {
         setProfileData(data);
+        // Haal de volledigheidsscore op of bereken deze
+        const score = user.completenessScore || data.completenessScore || calculateCompleteness(data);
+        setCompletenessScore(score);
       }
     } catch (error) {
       console.error('Error loading user profile data:', error);
     } finally {
       setIsLoadingProfileData(false);
     }
+  };
+  
+  // Bereken de volledigheidsscore als deze niet in de gegevens zit
+  const calculateCompleteness = (data) => {
+    if (!data) return 0;
+    
+    const fields = [];
+    
+    // Voeg persoonlijke gegevens toe als ze bestaan
+    if (data.personalInfo) {
+      if (data.personalInfo.age) fields.push(data.personalInfo.age);
+      if (data.personalInfo.lifePhase) fields.push(data.personalInfo.lifePhase);
+      if (data.personalInfo.lifePhase === 'Anders' && data.personalInfo.customLifePhase) {
+        fields.push(data.personalInfo.customLifePhase);
+      }
+    }
+    
+    // Voeg voorkeuren toe als ze bestaan
+    if (data.preferences) {
+      if (data.preferences.decisionStyle) fields.push(data.preferences.decisionStyle);
+      if (data.preferences.futureVision) fields.push(data.preferences.futureVision);
+      if (data.preferences.priorities) fields.push(data.preferences.priorities);
+      if (data.preferences.hobby) fields.push(data.preferences.hobby);
+      if (data.preferences.motivation) fields.push(data.preferences.motivation);
+    }
+    
+    // Als er geen velden zijn, return 0
+    if (fields.length === 0) return 0;
+    
+    // Aantal potentiële velden (7 in totaal - name is verwijderd)
+    const totalFields = 7;
+    
+    // Bereken percentage
+    return Math.round((fields.length / totalFields) * 100);
   };
 
   const handleLogout = () => {
@@ -172,14 +208,46 @@ const ProfileScreen = () => {
     }
   };
   
-  const handleOpenKnowMeBetter = () => {
-    setKnowMeBetterVisible(true);
+  const handleCompleteProfile = () => {
+    // Navigeer naar de onboarding flow, maar geef aan dat het vanaf het profiel is
+    navigation.navigate('Onboarding', { fromProfile: true });
   };
   
-  const handleCloseKnowMeBetter = () => {
-    setKnowMeBetterVisible(false);
-    // Herlaad profielgegevens na sluiten
-    loadUserProfileData();
+  // Render de volledigheidsscore
+  const renderCompletenessScore = () => {
+    // Bepaal de kleur op basis van de score
+    let scoreColor = COLORS.ERROR;
+    if (completenessScore >= 75) {
+      scoreColor = COLORS.SUCCESS;
+    } else if (completenessScore >= 50) {
+      scoreColor = COLORS.PRIMARY;
+    } else if (completenessScore >= 25) {
+      scoreColor = COLORS.WARNING;
+    }
+    
+    return (
+      <View style={styles.completenessContainer}>
+        <View style={styles.completenessHeader}>
+          <Text style={styles.completenessTitle}>Profielvolledigheid</Text>
+          <Text style={[styles.completenessScore, { color: scoreColor }]}>
+            {completenessScore}%
+          </Text>
+        </View>
+        
+        <View style={styles.progressBarContainer}>
+          <View style={[styles.progressBar, { width: `${completenessScore}%`, backgroundColor: scoreColor }]} />
+        </View>
+        
+        {completenessScore < 100 && (
+          <TouchableOpacity
+            style={styles.completeProfileButton}
+            onPress={handleCompleteProfile}
+          >
+            <Text style={styles.completeProfileButtonText}>Profiel vervolledigen</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
   };
 
   if (isLoading && !user) {
@@ -276,29 +344,32 @@ const ProfileScreen = () => {
           )}
         </View>
         
-        {/* "Leer mij beter kennen" sectie */}
+        {/* Volledigheidsscore */}
+        {renderCompletenessScore()}
+        
+        {/* Profielgegevens sectie */}
         {isLoadingProfileData ? (
           <Loading fullScreen={false} size="small" text="Gegevens laden..." />
         ) : profileData ? (
           <UserProfileData 
             profileData={profileData} 
-            onEdit={handleOpenKnowMeBetter} 
+            onEdit={handleCompleteProfile} 
           />
-        ) : (
-          <View style={styles.knowMeBetterContainer}>
-            <Text style={styles.knowMeBetterTitle}>Vertel me meer over jezelf</Text>
-            <Text style={styles.knowMeBetterText}>
-              Beantwoord enkele vragen zodat we je app-ervaring kunnen personaliseren
+        ) : user.onboardingSkipped ? (
+          // Als de gebruiker de onboarding heeft overgeslagen, toon een aanmoediging
+          <View style={styles.emptyProfileContainer}>
+            <Ionicons name="person-outline" size={50} color={COLORS.PRIMARY} />
+            <Text style={styles.emptyProfileTitle}>Vul je profiel aan</Text>
+            <Text style={styles.emptyProfileText}>
+              Door je profiel aan te vullen kunnen we je ervaring personaliseren.
             </Text>
             <Button
-              title="Leer mij beter kennen"
-              onPress={handleOpenKnowMeBetter}
-              variant="outline"
-              fullWidth
-              style={styles.knowMeBetterButton}
+              title="Profiel vervolledigen"
+              onPress={handleCompleteProfile}
+              style={styles.emptyProfileButton}
             />
           </View>
-        )}
+        ) : null}
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
@@ -348,13 +419,6 @@ const ProfileScreen = () => {
           <Text style={styles.versionText}>LiveParallel v1.0.0</Text>
         </View>
       </ScrollView>
-      
-      {/* "Leer mij beter kennen" Modal */}
-      <KnowMeBetter
-        visible={knowMeBetterVisible}
-        onClose={handleCloseKnowMeBetter}
-        userId={user.uid}
-      />
     </SafeAreaView>
   );
 };
@@ -423,6 +487,70 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 16,
+  },
+  completenessContainer: {
+    backgroundColor: COLORS.BACKGROUND,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    ...SHADOWS.small,
+  },
+  completenessHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  completenessTitle: {
+    ...TEXT.subtitle,
+  },
+  completenessScore: {
+    ...TEXT.subtitle,
+    fontWeight: 'bold',
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: COLORS.BORDER,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  progressBar: {
+    height: '100%',
+  },
+  completeProfileButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.PRIMARY + '10',
+    borderRadius: BORDER_RADIUS.md,
+  },
+  completeProfileButtonText: {
+    ...TEXT.body,
+    color: COLORS.PRIMARY,
+    fontWeight: '500',
+  },
+  emptyProfileContainer: {
+    backgroundColor: COLORS.BACKGROUND,
+    borderRadius: 12,
+    padding: 24,
+    marginBottom: 16,
+    ...SHADOWS.small,
+    alignItems: 'center',
+  },
+  emptyProfileTitle: {
+    ...TEXT.title,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyProfileText: {
+    ...TEXT.body,
+    color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  emptyProfileButton: {
+    marginTop: 8,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -496,30 +624,6 @@ const styles = StyleSheet.create({
     ...TEXT.body,
     color: COLORS.TEXT_SECONDARY,
     marginBottom: 16,
-  },
-  knowMeBetterContainer: {
-    backgroundColor: COLORS.BACKGROUND,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: 20,
-    marginBottom: 16,
-    ...SHADOWS.small,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.PRIMARY + '30', // 30% opacity
-    borderStyle: 'dashed',
-  },
-  knowMeBetterTitle: {
-    ...TEXT.title,
-    marginBottom: 8,
-  },
-  knowMeBetterText: {
-    ...TEXT.body,
-    color: COLORS.TEXT_SECONDARY,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  knowMeBetterButton: {
-    marginTop: 8,
   },
 });
 

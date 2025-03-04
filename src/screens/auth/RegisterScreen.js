@@ -47,7 +47,7 @@ const RegisterScreen = ({ navigation }) => {
   useEffect(() => {
     // Show error alert if registration fails
     if (error) {
-      Alert.alert('Registration Failed', error);
+      Alert.alert('Registratie mislukt', error);
     }
   }, [error]);
 
@@ -90,7 +90,15 @@ const RegisterScreen = ({ navigation }) => {
         displayName: formData.displayName,
         email: formData.email,
         password: formData.password,
-      }));
+      }))
+        .unwrap()
+        .then(() => {
+          // Navigeer naar de onboarding flow na succesvolle registratie
+          navigation.navigate('Onboarding');
+        })
+        .catch(err => {
+          console.error('Registratie fout:', err);
+        });
     }
   };
 
@@ -116,14 +124,14 @@ const RegisterScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Sign up to start exploring parallel lives</Text>
+            <Text style={styles.title}>Account aanmaken</Text>
+            <Text style={styles.subtitle}>Meld je aan om alternatieve levens te ontdekken</Text>
           </View>
 
           <View style={styles.formContainer}>
             <Input
-              label="Full Name"
-              placeholder="Enter your full name"
+              label="Naam"
+              placeholder="Voer je naam in"
               value={formData.displayName}
               onChangeText={(text) => handleChange('displayName', text)}
               onBlur={() => handleBlur('displayName')}
@@ -134,8 +142,8 @@ const RegisterScreen = ({ navigation }) => {
             />
 
             <Input
-              label="Email"
-              placeholder="Enter your email"
+              label="E-mail"
+              placeholder="Voer je e-mailadres in"
               value={formData.email}
               onChangeText={(text) => handleChange('email', text)}
               onBlur={() => handleBlur('email')}
@@ -147,8 +155,8 @@ const RegisterScreen = ({ navigation }) => {
             />
 
             <Input
-              label="Password"
-              placeholder="Choose a password"
+              label="Wachtwoord"
+              placeholder="Kies een wachtwoord"
               value={formData.password}
               onChangeText={(text) => handleChange('password', text)}
               onBlur={() => handleBlur('password')}
@@ -160,8 +168,8 @@ const RegisterScreen = ({ navigation }) => {
             />
 
             <Input
-              label="Confirm Password"
-              placeholder="Confirm your password"
+              label="Bevestig wachtwoord"
+              placeholder="Bevestig je wachtwoord"
               value={formData.confirmPassword}
               onChangeText={(text) => handleChange('confirmPassword', text)}
               onBlur={() => handleBlur('confirmPassword')}
@@ -173,7 +181,7 @@ const RegisterScreen = ({ navigation }) => {
             />
 
             <Button
-              title="Create Account"
+              title="Account aanmaken"
               onPress={handleSubmit}
               disabled={isLoading}
               loading={isLoading}
@@ -182,9 +190,9 @@ const RegisterScreen = ({ navigation }) => {
             />
 
             <View style={styles.loginContainer}>
-              <Text style={styles.loginText}>Already have an account?</Text>
+              <Text style={styles.loginText}>Heb je al een account?</Text>
               <TouchableOpacity onPress={navigateBack}>
-                <Text style={styles.loginLink}>Sign In</Text>
+                <Text style={styles.loginLink}>Inloggen</Text>
               </TouchableOpacity>
             </View>
           </View>
